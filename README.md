@@ -16,7 +16,7 @@ We use vault agent to automatically renew credentials.
 - Vault agent renews credentials automatically and renders them in a file;
 - We use [file_system](https://hex.pm/packages/file_system) to detect changes to this file;
 - When a change is detected, we use [`disconnect_all/3`](https://hexdocs.pm/db_connection/2.4.1/DBConnection.html#disconnect_all/3) from [`db_connection`](https://hex.pm/packages/db_connection) to force connections to the database to disconnect (they will automatically reconnect after a backoff);
-- Upon restart, these connections will reconfigure themselves using a MFA given when configuring the repo.
+- Upon restart, these connections will reconfigure themselves using a MFA given when [configuring the repo](https://github.com/ahamez/vault_ecto/blob/fa88f43c0bdc655e9e69a306b1a78cc930236d9e/config/config.exs#L11).
 
 ## Steps
 
