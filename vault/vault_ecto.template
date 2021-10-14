@@ -1,0 +1,3 @@
+{{with secret "database/creds/vault_ecto" -}}
+postgresql://{{ .Data.username }}:{{ .Data.password }}@localhost:5432/vault_ecto
+{{- end -}}
