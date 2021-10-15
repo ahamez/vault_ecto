@@ -34,36 +34,7 @@ defmodule VaultEcto.Repo do
     end)
   end
 
-  def execute(fun, timers \\ [0, 1, 10, 100, 1000]) when is_function(fun) do
-    do_execute(fun, timers)
-  end
-
   # -- Private
-
-  defp do_execute(fun, _timers = []) do
-    fun.()
-  end
-
-  defp do_execute(fun, [timer | timers]) do
-    try do
-      fun.()
-    rescue
-      e in Postgrex.Error ->
-        case e do
-          %Postgrex.Error{postgres: %{code: code}}
-          when code in [
-                 :insufficient_privilege,
-                 :invalid_authorization_specification,
-                 :invalid_password
-               ] ->
-            :timer.sleep(timer)
-            do_execute(fun, timers)
-
-          _ ->
-            reraise e, __STACKTRACE__
-        end
-    end
-  end
 
   defp get_wrapped_url(opts) do
     case System.fetch_env("VAULT_ECTO_POSTGRES_URL") do
