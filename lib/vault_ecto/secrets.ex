@@ -3,9 +3,9 @@ defmodule VaultEcto.Secrets do
   require Logger
 
   defmodule State do
-    defstruct secrets_dir_watcher_pid: nil,
+    defstruct watcher_pid: nil,
               secrets: %{},
-              secrets_dir_path: nil
+              secrets_dir: nil
   end
 
   def start_link(opts) do
@@ -15,16 +15,8 @@ defmodule VaultEcto.Secrets do
     GenServer.start_link(__MODULE__, conf, opts)
   end
 
-  def read_secret(server, secret_name) do
-    GenServer.call(server, {:read_secret, secret_name})
-  end
-
   def get_secret(server, secret_name) do
     GenServer.call(server, {:get_secret, secret_name})
-  end
-
-  def get_secrets(server) do
-    GenServer.call(server, :get_secrets)
   end
 
   # -- GenServer
@@ -37,9 +29,9 @@ defmodule VaultEcto.Secrets do
     {
       :ok,
       %State{
-        secrets_dir_watcher_pid: watcher_pid,
+        watcher_pid: watcher_pid,
         secrets: load_secrets(conf.secrets_dir),
-        secrets_dir_path: conf.secrets_dir
+        secrets_dir: conf.secrets_dir
       }
     }
   end
@@ -47,7 +39,7 @@ defmodule VaultEcto.Secrets do
   @impl true
   def handle_info(
         {:file_event, watcher_pid, {path, events}},
-        %State{secrets_dir_watcher_pid: watcher_pid} = state
+        %State{watcher_pid: watcher_pid} = state
       ) do
     Logger.debug("Path #{inspect(path)}: #{inspect(events)}")
 
@@ -67,16 +59,6 @@ defmodule VaultEcto.Secrets do
   end
 
   @impl true
-  def handle_info(
-        {:file_event, watcher_pid, :stop},
-        %State{secrets_dir_watcher_pid: watcher_pid} = state
-      ) do
-    Logger.warn("Secrets dir watcher terminated")
-
-    {:noreply, state}
-  end
-
-  @impl true
   def handle_continue({:notify_new_secret, secret_name = "vault_ecto", _new_secret}, state) do
     case secret_name do
       "vault_ecto" ->
@@ -89,31 +71,17 @@ defmodule VaultEcto.Secrets do
   end
 
   @impl true
-  def handle_call({:read_secret, secret_name}, _from, %State{} = state) do
-    secret_path = Path.join(state.secrets_dir_path, secret_name)
-    Logger.debug("Read secret from #{secret_path}")
-    {_secret_name, secret} = load_secret(secret_path)
-
-    {:reply, secret, state}
-  end
-
-  @impl true
   def handle_call({:get_secret, secret_name}, _from, %State{} = state) do
     secret = Map.get(state.secrets, secret_name)
 
     {:reply, secret, state}
   end
 
-  @impl true
-  def handle_call(:get_secrets, _from, %State{} = state) do
-    {:reply, state.secrets, state}
-  end
-
   # -- Private
 
-  defp load_secrets(secrets_dir_path) do
-    for secret_path <- File.ls!(secrets_dir_path), into: %{} do
-      abs_path = Path.join(secrets_dir_path, secret_path)
+  defp load_secrets(secrets_dir) do
+    for file_name <- File.ls!(secrets_dir), into: %{} do
+      abs_path = Path.join(secrets_dir, file_name)
       Logger.debug("Load secret from #{abs_path}")
       load_secret(abs_path)
     end
