@@ -15,8 +15,8 @@ defmodule VaultEcto.Secrets do
     GenServer.start_link(__MODULE__, conf, opts)
   end
 
-  def get_secret(server, secret_name) do
-    GenServer.call(server, {:get_secret, secret_name})
+  def get_wrapped_secret(server, secret_name) do
+    GenServer.call(server, {:get_wrapped_secret, secret_name})
   end
 
   # -- GenServer
@@ -47,14 +47,14 @@ defmodule VaultEcto.Secrets do
       :unchanged ->
         {:noreply, state}
 
-      {:changed, secret_name, new_secret} ->
-        new_secrets = Map.put(state.secrets, secret_name, new_secret)
-        Logger.debug("Secret #{secret_name} has changed (#{new_secret})")
+      {:changed, secret_name, wrapped_new_secret} ->
+        new_secrets = Map.put(state.secrets, secret_name, wrapped_new_secret)
+        Logger.debug("Secret #{secret_name} has changed")
 
         # Using :continue will invoke handle_continue next, but it ensures at the same time
-        # that the state is updated before any other process call get_secret/2.
+        # that the state is updated before any other process call get_wrapped_secret/2.
         {:noreply, %{state | secrets: new_secrets},
-         {:continue, {:notify_new_secret, secret_name, new_secret}}}
+         {:continue, {:notify_new_secret, secret_name, wrapped_new_secret}}}
     end
   end
 
@@ -71,10 +71,10 @@ defmodule VaultEcto.Secrets do
   end
 
   @impl true
-  def handle_call({:get_secret, secret_name}, _from, %State{} = state) do
-    secret = Map.get(state.secrets, secret_name)
+  def handle_call({:get_wrapped_secret, secret_name}, _from, %State{} = state) do
+    wrapped_secret = Map.get(state.secrets, secret_name)
 
-    {:reply, secret, state}
+    {:reply, wrapped_secret, state}
   end
 
   # -- Private
@@ -89,13 +89,13 @@ defmodule VaultEcto.Secrets do
 
   defp load_updated_secret(secrets, events, path) do
     if contains_watched_events?(events) and is_file?(path) do
-      {secret_name, new_secret} = load_secret(path)
+      {secret_name, wrapped_new_secret} = load_secret(path)
+      wrapped_previous_secret = Map.fetch!(secrets, secret_name)
 
-      if Map.fetch!(secrets, secret_name) == new_secret do
-        Logger.debug("Secret #{secret_name} hasn't changed")
+      if wrapped_previous_secret.() == wrapped_new_secret.() do
         :unchanged
       else
-        {:changed, secret_name, new_secret}
+        {:changed, secret_name, wrapped_new_secret}
       end
     else
       :unchanged
@@ -119,6 +119,6 @@ defmodule VaultEcto.Secrets do
     secret_name = Path.basename(path)
     secret = path |> File.read!() |> String.trim()
 
-    {secret_name, secret}
+    {secret_name, fn -> secret end}
   end
 end
