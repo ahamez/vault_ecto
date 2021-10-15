@@ -11,7 +11,6 @@ defmodule VaultEcto.MixProject do
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger],
@@ -19,9 +18,9 @@ defmodule VaultEcto.MixProject do
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:dialyxir, "~> 1.1", only: [:test, :dev], runtime: false},
       {:ecto_sql, "~> 3.7"},
       {:file_system, "~> 0.2"},
       {:postgrex, ">= 0.0.0"}
