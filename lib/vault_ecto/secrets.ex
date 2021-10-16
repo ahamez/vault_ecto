@@ -1,5 +1,7 @@
 defmodule VaultEcto.Secrets do
+  use Bitwise
   use GenServer
+
   require Logger
 
   defmodule State do
@@ -90,12 +92,17 @@ defmodule VaultEcto.Secrets do
   defp load_updated_secret(secrets, events, path) do
     if contains_watched_events?(events) and is_file?(path) do
       {secret_name, wrapped_new_secret} = load_secret(path)
-      wrapped_previous_secret = Map.fetch!(secrets, secret_name)
+      wrapped_previous_secret = Map.get(secrets, secret_name, nil)
 
-      if wrapped_previous_secret.() == wrapped_new_secret.() do
-        :unchanged
-      else
-        {:changed, secret_name, wrapped_new_secret}
+      cond do
+        wrapped_previous_secret == nil ->
+          :unchanged
+
+        same_secrets?(wrapped_previous_secret.(), wrapped_new_secret.()) ->
+          :unchanged
+
+        true ->
+          {:changed, secret_name, wrapped_new_secret}
       end
     else
       :unchanged
@@ -120,5 +127,22 @@ defmodule VaultEcto.Secrets do
     secret = path |> File.read!() |> String.trim()
 
     {secret_name, fn -> secret end}
+  end
+
+  # Constant-time comparison of secrets.
+  defp same_secrets?(lhs, rhs) when byte_size(lhs) != byte_size(rhs) do
+    false
+  end
+
+  defp same_secrets?(lhs, rhs) do
+    compare_secrets(0, lhs, rhs)
+  end
+
+  defp compare_secrets(acc, <<x, lhs::binary>>, <<y, rhs::binary>>) do
+    compare_secrets(acc ||| bxor(x, y), lhs, rhs)
+  end
+
+  defp compare_secrets(acc, <<>>, <<>>) do
+    acc === 0
   end
 end
