@@ -23,7 +23,8 @@ defmodule VaultEcto.MixProject do
       {:dialyxir, "~> 1.1", only: [:test, :dev], runtime: false},
       {:ecto_sql, "~> 3.7"},
       {:file_system, "~> 0.2"},
-      {:postgrex, ">= 0.0.0"}
+      {:postgrex, ">= 0.0.0"},
+      {:secrets_watcher, ">= 0.0.0"}
     ]
   end
 end

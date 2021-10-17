@@ -9,7 +9,7 @@ defmodule VaultEcto.Repo do
   def init(_context, opts) do
     Logger.debug("Starting #{__MODULE__} with opts: #{inspect(opts)}")
 
-    wrapped_url = get_wrapped_url(opts)
+    wrapped_url = get_wrapped_url()
     opts = Keyword.put(opts, :url, wrapped_url.())
 
     {:ok, opts}
@@ -17,7 +17,7 @@ defmodule VaultEcto.Repo do
 
   # Called when a pool connection is (re)started.
   def configure(opts) do
-    wrapped_url = get_wrapped_url(opts)
+    wrapped_url = get_wrapped_url()
     url = wrapped_url.()
 
     [username, password] =
@@ -34,16 +34,21 @@ defmodule VaultEcto.Repo do
     end)
   end
 
+  def disconnect_all() do
+    {_, %{pid: pid}} = Ecto.Repo.Registry.lookup(__MODULE__)
+    DBConnection.disconnect_all(pid, 1_000)
+  end
+
   # -- Private
 
-  defp get_wrapped_url(opts) do
+  defp get_wrapped_url() do
     case System.fetch_env("VAULT_ECTO_POSTGRES_URL") do
       {:ok, url} ->
         fn -> url end
 
       :error ->
-        conf = Keyword.fetch!(opts, :conf)
-        VaultEcto.Secrets.get_wrapped_secret(conf.servers.secrets, "vault_ecto")
+        {:ok, wrapped_url} = SecretsWatcher.get_wrapped_secret(:secrets, "vault_ecto")
+        wrapped_url
     end
   end
 end
