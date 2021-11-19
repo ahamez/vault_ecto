@@ -1,20 +1,20 @@
-# Vault + Ecto
+# Automatic reloading of PostgreSQL credentials with Ecto
 
-This repository is an example of how to make Vault rotation of a Postgres database credentials work well with Ecto, in a local setup.
+This repository is an example of how to automatically reload the credentials with [Ecto](https://github.com/elixir-ecto/ecto) of a [PostgreSQL](https://www.postgresql.org/) instance rotated automatically by [Vault](https://www.vaultproject.io/).
 
-We use vault agent to automatically renew credentials.
+Note that Vault is not strictly required to rotate credentials, as long as an automatic process update these credentials. However, being the de-facto server to manage secrets, it's useful to see that it's easy to make Ecto and Vault work together.
 
 ### Tested with
 
 * Elixir 1.12.3
 * Ecto 3.7.1
 * Vault 1.8.4
-* Postgres 14.0
+* Postgres 14.1
 
 ## How it works
 
 - Vault agent renews credentials automatically and renders them in a file;
-- We use [file_system](https://hex.pm/packages/file_system) to detect changes to this file;
+- We use [secrets_watcher](https://hex.pm/packages/secrets_watcher) to detect changes to this file;
 - When a change is detected, we use [`disconnect_all/3`](https://hexdocs.pm/db_connection/2.4.1/DBConnection.html#disconnect_all/3) from [`db_connection`](https://hex.pm/packages/db_connection) to force connections to the database to disconnect (they will automatically reconnect after a backoff);
 - Upon restart, these connections will reconfigure themselves using a MFA given when [configuring the repo](https://github.com/ahamez/vault_ecto/blob/fa88f43c0bdc655e9e69a306b1a78cc930236d9e/config/config.exs#L11).
 
@@ -63,7 +63,7 @@ We use vault agent to automatically renew credentials.
     ℹ️ `username` and `password` are the  admin postgres instance credentials
     ℹ️ note the `?sslmode=disable` to connect to the dev instance (which is obviously a bad idea in production!)
 
-* Create a role `vault-agent`:
+* Create a role `vault_ecto`:
     ```sh
     vault write database/roles/vault_ecto \
       db_name=vault_ecto \
@@ -118,37 +118,40 @@ We use vault agent to automatically renew credentials.
     vault agent -config ./vault/vault_agent_config.hcl
     ```
 
-### Init database and launch vault_ecto
+### Create database
 
-* Set `VAULT_ECTO_POSTGRES_URL` (used by mix.ecto tasks):
+* Connect to instance
     ```sh
-    export VAULT_ECTO_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/vault_ecto
-    ```
-    ⚠️ Require an admin password
-    ℹ️ We could also perform the creation of the database using psql, it's just for a matter of convenience.
-
-* Setup and populate database:
-    ```sh
-    mix ecto.drop
-    mix ecto.create
-    mix ecto.migrate
-    mix run ./priv/repo/seed.exs
+    $ PGPASSWORD=postgres psql -U postgres -p 5432 -h 127.0.0.1
     ```
 
-* Unset `VAULT_ECTO_POSTGRES_URL`:
-    ```sh
-    unset VAULT_ECTO_POSTGRES_URL
+* Create database
+    ```sql
+    CREATE DATABASE vault_ecto;
     ```
 
-* You can now launch vault_ecto:
+### Launch vault_ecto and initialize database
+
+* Launch vault_ecto:
     ```sh
     iex -S mix
     ```
 
+* Create table:
+    ```elixir
+    iex> Ecto.Migrator.with_repo(VaultEcto.Repo, &Ecto.Migrator.run(&1, :up, all: true))
+    ```
 
-## Cheatsheets
+    ℹ️ This code applies all migrations in `priv/repo/migrations`.
 
-### Elixir app
+* Seed table with some data:
+    ```elixir
+    iex> Code.eval_file("priv/repo/seed.exs")
+    ```
+
+## Cheatsheet
+
+### `vault_ecto`
 
 * Select query:
     ```elixir
