@@ -2,7 +2,7 @@
 
 This repository is an example of how to automatically reload the credentials with [Ecto](https://github.com/elixir-ecto/ecto) of a [PostgreSQL](https://www.postgresql.org/) instance rotated automatically by [Vault](https://www.vaultproject.io/).
 
-Note that Vault is not strictly required to rotate credentials, as long as an automatic process update these credentials. However, being the de-facto server to manage secrets, it's useful to see that it's easy to make Ecto and Vault work together.
+Note that Vault is not strictly required to rotate credentials, as long as an automatic process updates these credentials. However, being the de-facto server to manage secrets, it's useful to see that it's easy to make Ecto and Vault work together.
 
 ### Tested with
 
